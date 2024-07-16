@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Adicionando artigo `Como eu estou enviando os commits dos meus projetos para o one drive` escrito em 2023-04-28
+
 ## [1.0.0] - 2022-06-05
 ### Added
 - Adicionado artigo `O que o tio Lex (acha que) entende de GIT` escrito em 2022-01-16 e [publicado em 2022-06-05](https://dev.to/lexfalconis/o-que-o-tio-lex-acha-que-entende-de-git-3cd1);
