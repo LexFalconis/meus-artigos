@@ -3,21 +3,23 @@
 ## O que abordaremos?
 Com o intuito de apenas passar por alguns passos importantes e que podem ajudar outras pessoas a iniciarem o desenvolvimento de suas aplicações symfony, vamos documentar apenas ALGUNS passos, não todo o projeto em si.
 
-### Ambiente
+Outro ponto que é bom deixar claro, é que algumas coisas que foram desenvolvidas/configuradas no inicio, podem e provavelmente serão alteradas com o decorrer do desenvolvimento, e por este motivo, mais a frente pode-se encontrar correções ou complementos de algo que já havia sido feito/mencionado, então (quando eu lembrar de fazer) colocarei a identificação **< UPDATE >** no titulo ou parte do texto (qqc, faz um find aí...).
+
+## Ambiente
 Antes de mais nada, famos instalar o 'básico':
 1. Instalação do Symfony
-```shell
+```
 composer create-project symfony/skeleton:"6.4.*" my_project_directory
 ```
 2. Instalação do API Platform
-```shell
+```
 composer require api
 ```
 
-### Autênticação JWT
+## Autênticação JWT
 Tá aí uma coisa um pouco mais "complicada" e que levou mais tempo do que eu esperava para realizar todos os passos. Então vamos a eles:
 1. Para autênticar, é necessário alguma forma de validar usuário e senha, então usaremos o armazenamento do usuário através do banco de dados, então para usar o 'make' do symfony, vamos instalar o seu bundle.
-```shell
+```
 composer require symfony/maker-bundle --dev
 ```
 2. Agora vamos usar o make para criar o usuário, definindo qual atributo será usado como unico, como email ou nome de usuário.
@@ -29,12 +31,12 @@ composer require symfony/maker-bundle --dev
 ![](./data/img002.png)
 
 4. Hora de instalar o pacote responsável pelo uso do JWT
-```shell
+```
 composer require lexik/jwt-authentication-bundle
 ```
 
 5. Este script em Shell é utilizado para configurar um ambiente de autenticação JWT (JSON Web Token) em um sistema baseado em Linux. Ele gera chaves privadas e públicas para JWT e define permissões de acesso.
-```shell
+```
 mkdir -p config/jwt
 jwt_passphrase=${JWT_PASSPHRASE:-$(grep ''^JWT_PASSPHRASE='' .env | cut -f 2 -d ''='')}
 echo "$jwt_passphrase" | openssl genpkey -out config/jwt/private.pem -pass stdin -aes256 -algorithm rsa -pkeyopt rsa_keygen_bits:4096
@@ -87,7 +89,7 @@ access_control:
 ```
 8. Vamos criar a controller de registro de usuário para que este usuário possa posteriormente ser autênticado.
 - Criando a controller:
-```shell
+```
 bin/console make:controller RegistrationController
 ```
 - Definindo o conteúdo:
@@ -134,25 +136,7 @@ Obs.: Usamos o 'UserPasswordHasherInterface' para fazer o encoding da senha envi
 
 ![](./data/img005.png)
 
-#### Todos comandos mencionados até o momento:
-```shell
-composer create-project symfony/skeleton:"6.4.*" my_project_directory
-composer require api
-composer require symfony/maker-bundle --dev
-bin/console make:user
-bin/console make:migration
-bin/console doctrine:migrations:migrate
-composer require lexik/jwt-authentication-bundle
-mkdir -p config/jwt
-jwt_passphrase=${JWT_PASSPHRASE:-$(grep ''^JWT_PASSPHRASE='' .env | cut -f 2 -d ''='')}
-echo "$jwt_passphrase" | openssl genpkey -out config/jwt/private.pem -pass stdin -aes256 -algorithm rsa -pkeyopt rsa_keygen_bits:4096
-echo "$jwt_passphrase" | openssl pkey -in config/jwt/private.pem -passin stdin -out config/jwt/public.pem -pubout
-setfacl -R -m u:www-data:rX -m u:"$(whoami)":rwX config/jwt
-setfacl -dR -m u:www-data:rX -m u:"$(whoami)":rwX config/jwt
-bin/console make:controller RegistrationController
-```
-
-auth
+## Todos comandos mencionados até o momento:
 ```
 composer create-project symfony/skeleton:"6.4.*" my_project_directory
 composer require api
@@ -168,171 +152,95 @@ echo "$jwt_passphrase" | openssl pkey -in config/jwt/private.pem -passin stdin -
 setfacl -R -m u:www-data:rX -m u:"$(whoami)":rwX config/jwt
 setfacl -dR -m u:www-data:rX -m u:"$(whoami)":rwX config/jwt
 bin/console make:controller RegistrationController
-
-
-9  bin/console make:entity
-10  bin/console make:migration
-11  bin/console doctrine:migrations:migrate
-12  bin/console lexik:jwt:generate-keypair
-13  composer require lexik/jwt-authentication-bundle
-14  chmod +x ./bin/jwt-install
-15  ./bin/jwt-install
-16  bin\console make:controller RegistrationController
-17  bin/console make:controller RegistrationController
-18  bin/console make:controller DashboardController
-19  bin/console
-20  bin/console make:entity
-21  bin/console make:migration
-22  bin/console doctrine:migrations:migrate
 ```
 
-
-security
-```yaml
-security:
-#    role_hierarchy:
-#        ROLE_CUSTOMER: ROLE_USER
-#        ROLE_COLLABORATOR: ROLE_USER
-#        ROLE_ADMIN: [ ROLE_COLLABORATOR, ROLE_CUSTOMER ]
-#        ROLE_SUPER_ADMIN: [ ROLE_ADMIN, ROLE_ALLOWED_TO_SWITCH ]
-    # https://symfony.com/doc/current/security.html#registering-the-user-hashing-passwords
-    password_hashers:
-        Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface: 'auto'
-    # https://symfony.com/doc/current/security.html#loading-the-user-the-user-provider
-    providers:
-        # used to reload user from session & other features (e.g. switch_user)
-        app_user_provider:
-            entity:
-                class: App\Entity\Usuario
-                property: username
-    firewalls:
-        docs:
-            pattern: ^/api/docs
-            security: false
-        main:
-            pattern: ^/(api|login)
-            stateless: true
-            json_login:
-                check_path: /api/login_check
-                success_handler: lexik_jwt_authentication.handler.authentication_success
-                failure_handler: lexik_jwt_authentication.handler.authentication_failure
-            jwt: ~
-        dev:
-            pattern: ^/(_(profiler|wdt)|css|images|js)/
-            security: false
-
-#        main:
-#            lazy: true
-#            provider: app_user_provider
-
-            # activate different ways to authenticate
-            # https://symfony.com/doc/current/security.html#the-firewall
-
-            # https://symfony.com/doc/current/security/impersonating_user.html
-            # switch_user: true
-#        api:
-#            pattern: ^/api
-#            stateless: true
-#            jwt: ~
-
-    # Easy way to control access for large sections of your site
-    # Note: Only the *first* access control that matches will be used
-    access_control:
-        # Allows accessing the Swagger UI
-        - { path: ^/api/docs, roles: IS_AUTHENTICATED_ANONYMOUSLY }
-        - { path: ^/api/login_check, roles: IS_AUTHENTICATED_ANONYMOUSLY }
-        - { path: ^/api/register, roles: IS_AUTHENTICATED_ANONYMOUSLY }
-        # require ROLE_ADMIN for /admin*
-        #        - { path: '^/admin', roles: ROLE_ADMIN }
-        # or require ROLE_ADMIN or IS_AUTHENTICATED_FULLY for /admin*
-        #        - { path: '^/admin', roles: [ IS_AUTHENTICATED_FULLY, ROLE_ADMIN ] }
-        # the 'path' value can be any valid regular expression
-        # (this one will match URLs like /api/post/7298 and /api/comment/528491)
-        - { path: ^/, roles: IS_AUTHENTICATED_FULLY }
-
-when@test:
-    security:
-        password_hashers:
-            # By default, password hashers are resource intensive and take time. This is
-            # important to generate secure password hashes. In tests however, secure hashes
-            # are not important, waste resources and increase test times. The following
-            # reduces the work factor to the lowest possible values.
-            Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface:
-                algorithm: auto
-                cost: 15 # Lowest possible value for bcrypt
-                time_cost: 3 # Lowest possible value for argon
-                memory_cost: 10 # Lowest possible value for argon
-
+## Datafixtures
+Para que tenhamos dados iniciais importantes para o funcionamento do sistema, vamos criar Datafixtures, que serve para testes da aplicação alimentando dados no sistema, como também poderia ser usado para alimentar com dados base para o uso que é o nosso caso, ao menos no momento.
 ```
-routes
-```yaml
-controllers:
-    resource:
-        path: ../src/Controller/
-        namespace: App\Controller
-    type: attribute
-api_login_check:
-    path: /api/login_check
-
+composer require --dev orm-fixtures
 ```
-
-registration controller
+## Correções na entidade de usuário
+Um pequeno detalhe que havia pensado para a entidade de usuário, mas que acabei esquecendo de desenvolver, foi usar o id como UUID, que pode ser algo simples para um, mas uma grande descoberta apra outros. Para isso instalei a lib do symkfony apra uuid.
+```
+composer require symfony/uid
+```
+Em seguida definimos o id como Uuid e atribuimos a notation o tipo do dado, ficando desta forma o atributo na classe:
 ```php
-<?php
+#[ORM\Id]
+#[ORM\Column(type: UuidType::NAME, unique: true)]
+#[ORM\GeneratedValue(strategy: 'CUSTOM')]
+#[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
+private ?Uuid $id = null;
+```
+Algumas observações sobre esta alteração que podem ser interessantes de se entender melhor:
+- #[ORM\GeneratedValue(strategy: 'CUSTOM')]: Especifica como o valor da chave primária deve ser gerado, então o "CUSTOM" diz que será utilizado um strategy especificado pelo usuário.
+- #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]: Define a classe responsável por gerar o valor da chave primária, onde a classe 'doctrine.uuid_generator' será a responsável por gerar os UUIDs e é fornecida pelo [Doctrine](https://www.doctrine-project.org), que é o [ORM](https://www.treinaweb.com.br/blog/o-que-e-orm) padrão do symfony.
 
-namespace App\Controller;
+## Uso de namespace nas entidades
+Algo que eu pretendia fazer apra melhor organização dos arquivos e melhor entendimento a que cada coisa se refere, é o uso do namespace para minhas classes, mas como que a gente cria/edita uma classe que está em um namespace? já que o uso padrão do make:entity {NomeClasse} vai sempre se referir a classe na raiz do App\Entity.
 
-use App\Entity\Usuario;
-use Doctrine\Persistence\ManagerRegistry;
-use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\JsonResponse;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
-use Symfony\Component\Routing\Attribute\Route;
+Usa-se então o nome da classe COM o namespace completo, então para criar ou editar a classe "Saga" que ficará dentro do namespace "Revista", usa-se `bin/console make:entity App\\Entity\\Revista\\Saga`.
 
-#[Route('/api', name: 'api_')]
-class RegistrationController extends AbstractController
-{
-    #[Route('/register', name: 'register', methods: 'post')]
-    public function index(ManagerRegistry $doctrine, Request $request, UserPasswordHasherInterface $passwordHasher): JsonResponse
-    {
-        $em = $doctrine->getManager();
-        $decoded = json_decode($request->getContent());
-        $plaintextPassword = $decoded->password;
+## Definição de hierarquia na ACL
+Seguindo o plano de permitir que certas operações só sejam feitas por certos usuários, surgiu a necessidade de ver se o usuário que está logado, possui aquela regra ([symfony security](https://symfony.com/doc/current/security.html), uso das ROLES).
 
-        $user = new Usuario();
-        $hashedPassword = $passwordHasher->hashPassword(
-            $user,
-            $plaintextPassword
-        );
-        $user
-            ->setPassword($hashedPassword)
-            ->setStatus(1)
-            ->setUsername($decoded->username)
-            ->setDataCadastro(new \DateTime())
-            ->setRoles(['ROLE_USER'])
-        ;
-        $em->persist($user);
-        $em->flush();
+Alterei o 'application/config/packages/security.yaml', adicionando o item 'role_hierarchy', ficando assim:
+```yaml
+role_hierarchy:
+    ROLE_SUBSCRIBER: ROLE_USER
+    ROLE_CONTRIBUTOR: ROLE_SUBSCRIBER
+    ROLE_EDITOR: ROLE_CONTRIBUTOR
+    ROLE_ADMIN: ROLE_EDITOR
+```
+O que acontece nesta hierarquia? Bem, vamos lá.
+- ROLE_SUBSCRIBER: Esta role poderá fazer tudo que for definido para ela, e herda tudo que o "ROLE_USER" (uma das roles padrão/sugerida pelo symfony) tem de permissão, e as outras segue a mesma idéia.
+- ROLE_ADMIN: Para termos mais um exempĺo e talvez ficar mais claro, a 'ROLE_ADMIN' pode fazer tudo que todas as outras que estão abaixo podem, pois ela herda tudo que a 'ROLE_EDITOR' pode fazer, que por sua vez herda tudo que a 'ROLE_CONTRIBUTOR' pode fazer, que herda tudo a 'ROLE_SUBSCRIBER' pode fazer.
 
-        return $this->json(['message' => 'Registered Successfully']);
-    }
-}
+Se uma role não herdar em cascata, como aconteceu NO MEU CASO/NECESSIDADE, elas podem ser diferentes, como herdar de mais um ao mesmo tempo, exemplo:
+```yaml
+role_hierarchy:
+    ROLE_SUBSCRIBER: ROLE_USER
+    ROLE_CONTRIBUTOR: ROLE_USER
+    ROLE_EDITOR: ROLE_USER
+    ROLE_ADMIN: [ROLE_EDITOR, ROLE_SUBSCRIBER, ROLE_CONTRIBUTOR]
+```
+Neste exemplo, quase todos herdariam da ROLE_USER, e teriam suas próprias permissões também, já o ROLE_ADMIN herdaria as permissões de todos, e por isso todos estão definidos como uma coleção.
 
+## Triggers pré update e pré insert
+Algumas das entidades que podem ser persistidas neste projeto, possuem regras de (por exemplo) só poder ser alterado pelo usuário que criou o registro ou por alguém com permissão mais elevada. Para esse recurso funcionar, li um pouco sobre os [event listeners](https://symfony.com/doc/6.4/doctrine/events.html) do symfony, e venhamos e convenhamos, que coisa sensacional de se trabalhar rsrsrsrs.
+
+Para criar o listener, executei:
+```
+bin/console make:listener
 ```
 
-jwt-install
-```shell
-#!/usr/bin/env sh
-set -e
-    apt-get update --yes
-    apt-get install acl --yes
-    mkdir -p config/jwt
-    jwt_passphrase=${JWT_PASSPHRASE:-$(grep ''^JWT_PASSPHRASE='' .env | cut -f 2 -d ''='')}
-    echo "$jwt_passphrase" | openssl genpkey -out config/jwt/private.pem -pass stdin -aes256 -algorithm rsa -pkeyopt rsa_keygen_bits:4096
-    echo "$jwt_passphrase" | openssl pkey -in config/jwt/private.pem -passin stdin -out config/jwt/public.pem -pubout
-    setfacl -R -m u:www-data:rX -m u:"$(whoami)":rwX config/jwt
-    setfacl -dR -m u:www-data:rX -m u:"$(whoami)":rwX config/jwt
+Com isso nomeei minha classe como 'SagaListener' (pois este é especifico para minha entidade 'Saga'), criei as funções prePersist e preUpdate, ficando da seguinte forma:
 
+![](./data/img006.png)
+
+**< UPDATE >**
+Posteriormente, alterei o 'application/config/services.yaml', criando um serviço onde defino, qual evento ocorrendo em qual entidade acionará determinados métodos, deixando o service assim:
+```yaml
+services:
+    App\EventListener\Revista\SagaListener:
+        tags:
+            - { name: 'doctrine.orm.entity_listener', event: 'prePersist', entity: 'App\Entity\Revista\Saga'}
+            - { name: 'doctrine.orm.entity_listener', event: 'preUpdate', entity: 'App\Entity\Revista\Saga'}
+```
+### Pequeno imprevisto neste passo
+Tive certos problemas para validar os dados que eu precisava comparar, pois ao obter os dados do banco e comparar com os dados vindos da requisição, os objetos eram IDENTICOS, e isso me tomou um certo tempo para descobrir a solução, que pode ser algo bem óbvio para você que está lendo, mas talvez o cansaço de agora ser 1hs AM e eu estar trabalhando neste projeto desde 7hs AM do dia anterior, pode ter levado minhas habilidades de pensar melhor rsrsrsrs.
+```php
+$doctrine = $this->doctrine;
+$oldSaga = clone $doctrine->getRepository(Saga::class)->find($saga->getId());
+$doctrine->getManager()->refresh($saga);
+
+$this->handleEntity($saga, $oldSaga);
+```
+Aqui precisei realizar duas ações, uma que foi clonar o resultado vindo do banco e em seguida fazer um [refresh do doctrine, pois em diversas operações é utilizado cache para obter os dados](https://stackoverflow.com/questions/63073595/how-to-request-fresh-data-from-repository-and-overcome-entity-manager-persist-re).
+
+## Todos comandos mencionados até o momento:
+```
+composer require --dev orm-fixtures
+composer require symfony/uid
+bin/console make:listener
 ```

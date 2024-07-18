@@ -1,0 +1,8 @@
+# Referências
+### Referências que me auxiliaram no desenvolvimento do sistema e consequentemente na escrita deste artigo:
+
+- https://www.binaryboxtuts.com/php-tutorials/symfony-7-json-web-tokenjwt-authentication/
+- https://medium.com/@agharsaifeddine/set-up-jwt-authentication-with-symfony-using-the-lexikjwtauthenticationbundle-2df8e9170bec
+- https://symfony.com/doc/current/components/uid.html#working-with-uuids
+- https://symfony.com/doc/6.4/doctrine/events.html
+- https://stackoverflow.com/questions/63073595/how-to-request-fresh-data-from-repository-and-overcome-entity-manager-persist-re
