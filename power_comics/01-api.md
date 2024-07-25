@@ -248,14 +248,36 @@ bin/console make:listener
 ## Validação personalizada
 Em meio ao desenvolvimento, notei que algo no meu diagrama de classe e no meu MER estava inconsistente, a entidade referente a 'Edição' possuia 'número', mas não tinha um 'subtitulo', com isso percebi que nem sempre uma edição possui exatamente um número, algumas vezes ela tem algo similar a um subtitulo, por exemplo as edições 'Free Comic Book Day' e ' Anual (2017)', então ao invés de tornar o 'número' um atributo de preenchimento obrigatório, eu preciso que ou o número ou o subtitulo seja preenchido, então pensei, "por que não usar o validator personalizado do symfony?". Bora documentar/entender um pouco sobre como usar? Bora!
 
-Para começar, vamos usar masi um 'make' do symfony, e como este em especifico ainda não estava instalado, executei:
+Para começar, vamos usar mais um 'make' do symfony, e como este em especifico ainda não estava instalado, executei:
 ```
-composer require validator --dev
+composer require symfony/validator
 ```
+Na sequência, criamos o validate usando o [callback](https://symfony.com/doc/6.4/reference/constraints/Callback.html#external-callbacks-and-closures), ficando assim:
+```php
+namespace App\Entity\Revista\Titulo;
+
+use ...;
+
+#[ORM\Entity(repositoryClass: EdicaoRepository::class)]
+class Edicao
+{
+    ...atributos e métodos da entidade...
+
+    #[Assert\Callback]
+    public function validate(): void
+    {
+        if(is_null($this->numero) && is_null($this->subtitulo)) {
+            throw new \DomainException('Obrigatóriamente "Número" OU "Subtitulo" precisa ser preenchido.');
+        }
+        if(!is_null($this->numero) && !is_null($this->subtitulo)) {
+            throw new \DomainException('Obrigatóriamente apenas um dos atributos pode ser preenchido, "Número" OU "Subtitulo".');
+        }
+    }
+}
+```
+
+_______________________________
 Em sequiga, já era possível executar o `bin/console make:validator`, ficando assim o uso:
-
 ![](./data/img007.png)
-
-
-composer require validator --dev
+composer require symfony/validator
 bin/console make:validator
