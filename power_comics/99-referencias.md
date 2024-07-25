@@ -6,3 +6,4 @@
 - https://symfony.com/doc/current/components/uid.html#working-with-uuids
 - https://symfony.com/doc/6.4/doctrine/events.html
 - https://stackoverflow.com/questions/63073595/how-to-request-fresh-data-from-repository-and-overcome-entity-manager-persist-re
+- https://www.doctrine-project.org/projects/doctrine-orm/en/current/reference/events.html#lifecycle-events

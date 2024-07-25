@@ -219,7 +219,7 @@ Com isso nomeei minha classe como 'SagaListener' (pois este é especifico para m
 ![](./data/img006.png)
 
 **< UPDATE >**
-Posteriormente, alterei o 'application/config/services.yaml', criando um serviço onde defino, qual evento ocorrendo em qual entidade acionará determinados métodos, deixando o service assim:
+Posteriormente, alterei o 'application/config/services.yaml', criando um serviço onde defino, [qual evento ocorrendo em qual entidade acionará determinados métodos](https://www.doctrine-project.org/projects/doctrine-orm/en/current/reference/events.html#lifecycle-events), deixando o service assim:
 ```yaml
 services:
     App\EventListener\Revista\SagaListener:
@@ -244,3 +244,18 @@ composer require --dev orm-fixtures
 composer require symfony/uid
 bin/console make:listener
 ```
+
+## Validação personalizada
+Em meio ao desenvolvimento, notei que algo no meu diagrama de classe e no meu MER estava inconsistente, a entidade referente a 'Edição' possuia 'número', mas não tinha um 'subtitulo', com isso percebi que nem sempre uma edição possui exatamente um número, algumas vezes ela tem algo similar a um subtitulo, por exemplo as edições 'Free Comic Book Day' e ' Anual (2017)', então ao invés de tornar o 'número' um atributo de preenchimento obrigatório, eu preciso que ou o número ou o subtitulo seja preenchido, então pensei, "por que não usar o validator personalizado do symfony?". Bora documentar/entender um pouco sobre como usar? Bora!
+
+Para começar, vamos usar masi um 'make' do symfony, e como este em especifico ainda não estava instalado, executei:
+```
+composer require validator --dev
+```
+Em sequiga, já era possível executar o `bin/console make:validator`, ficando assim o uso:
+
+![](./data/img007.png)
+
+
+composer require validator --dev
+bin/console make:validator
