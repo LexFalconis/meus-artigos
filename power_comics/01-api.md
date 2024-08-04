@@ -276,8 +276,136 @@ class Edicao
 }
 ```
 
+## Controller
+
+Devido necessidades bem específicas para o uso de uma das entidades, decidi criar um endpoint especifico para que apenas o usuário dono de um registro obtenha sua coleção, aproveitando para que apenas ele consiga deletar o registro e que sempre que tentar criar um novo registro, seja verificado se já existe um registro daquele usuário para uma mesma edição "lida", caso já exista, retorna o registro encontrado ao invés de criar um novo registro.
+
+Criei então a 'LeituraController' que ficou responsável pelas requisições feitas para o endpoint `/api/minhas-leituras`.
+
+```php
+class LeituraController extends AbstractController
+{
+    private $leituraService;
+
+    public function __construct(LeituraService $leituraService)
+    {
+        $this->leituraService = $leituraService;
+    }
+
+    #[Route('/api/minhas-leituras', name: 'all_leituras', methods: ['GET'])]
+    public function index(): JsonResponse
+    {
+        $user = $this->leituraService->getAuthenticatedUser();
+
+        ... lógica ...
+
+        return $this->json($response, JsonResponse::HTTP_OK, [], ['groups' => 'leitura:read']);
+    }
+
+    #[Route('/api/minhas-leituras/{id}', name: 'find_leituras', methods: ['GET'])]
+    public function findById($id): JsonResponse
+    {
+        ... lógica ...
+
+        $leitura = $this->leituraService->getLeituraForUserById($user, $id);
+
+        return $this->json($leitura, JsonResponse::HTTP_OK, [], ['groups' => 'leitura:read']);
+    }
+
+    #[Route('/api/minhas-leituras/{id}', name: 'delete_leituras', methods: ['DELETE'])]
+    public function delete(int $id): Response
+    {
+        ... lógica ...
+
+        $this->leituraService->deleteLeitura($leitura);
+
+        return new Response('Leitura removida com sucesso!', Response::HTTP_OK);
+    }
+
+    #[Route('/api/minhas-leituras', name: 'create_leituras', methods: ['POST'])]
+    public function create(Request $request, SerializerInterface $serializer): Response
+    {
+        $post = $this->leituraService->deserializeLeitura($request->getContent(), $serializer);
+
+        if($post->getDataLeitura() == null) {
+            $post->setDataLeitura(new \DateTime());
+        }
+
+        $user = $this->leituraService->getAuthenticatedUser();
+        $post->setUsuario($user);
+
+        $leitura = $this->leituraService->getLeituraByUserAndEdicao($user, $post->getEdicao()->getId());
+        if ($leitura instanceof Leitura) {
+            return $this->json($leitura, Response::HTTP_OK, [], ['groups' => ['leitura:read']]);
+        }
+
+        $this->leituraService->saveLeitura($post);
+
+        return $this->json($post, Response::HTTP_CREATED, [], ['groups' => ['leitura:read']]);
+    }
+}
+```
+
+Estou usando no retorno o array `['groups' => ['leitura:read']]` pois a entidade Leitura tem referência para a entidade Usuário, e o invérso também ocorre, causando um erro de 'referência circular' no momento em que tentamos serializar a entidade.
+
+![](./data/img007.png)
+
+Criei também um serviço para centralizar a lógica e reutilizar alguns métodos na minha controller, ficando assim:
+
+```php
+class LeituraService
+{
+    private $entityManager;
+    private $leituraRepository;
+    private $security;
+
+    public function __construct(EntityManagerInterface $entityManager, LeituraRepository $leituraRepository, Security $security)
+    {
+        $this->entityManager = $entityManager;
+        $this->leituraRepository = $leituraRepository;
+        $this->security = $security;
+    }
+
+    public function getAuthenticatedUser()
+    {
+        return $this->security->getUser();
+    }
+
+    public function getLeiturasForUser($user)
+    {
+        return $this->leituraRepository->findBy(['usuario' => $user]);
+    }
+
+    public function getLeituraForUserById($user, $id)
+    {
+        return $this->leituraRepository->findOneBy(['usuario' => $user, 'id' => $id]);
+    }
+
+    public function getLeituraByUserAndEdicao($user, $edicaoId)
+    {
+        return $this->leituraRepository->findOneBy(['usuario' => $user, 'edicao' => $edicaoId]);
+    }
+
+    public function deleteLeitura(Leitura $leitura)
+    {
+        $this->entityManager->remove($leitura);
+        $this->entityManager->flush();
+    }
+
+    public function saveLeitura(Leitura $leitura)
+    {
+        $this->entityManager->persist($leitura);
+        $this->entityManager->flush();
+    }
+
+    public function deserializeLeitura($data, $serializer)
+    {
+        return $serializer->deserialize($data, Leitura::class, 'json');
+    }
+}
+```
+
 _______________________________
 Em sequiga, já era possível executar o `bin/console make:validator`, ficando assim o uso:
-![](./data/img007.png)
 composer require symfony/validator
 bin/console make:validator
