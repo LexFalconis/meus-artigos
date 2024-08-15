@@ -278,6 +278,7 @@ class Edicao
 
 ## Controller
 
+### Controller de leitura
 Devido necessidades bem específicas para o uso de uma das entidades, decidi criar um endpoint especifico para que apenas o usuário dono de um registro obtenha sua coleção, aproveitando para que apenas ele consiga deletar o registro e que sempre que tentar criar um novo registro, seja verificado se já existe um registro daquele usuário para uma mesma edição "lida", caso já exista, retorna o registro encontrado ao invés de criar um novo registro.
 
 Criei então a 'LeituraController' que ficou responsável pelas requisições feitas para o endpoint `/api/minhas-leituras`.
@@ -404,6 +405,151 @@ class LeituraService
     }
 }
 ```
+### Controller de edição + Service para manter imagem
+A entidade edição precisava ter uma forma de manter a imagem da edição, então, antes de mais nada, pensei que precisaria de algum serviço, que futuramente poderia até ser usado em uma imagem para a saga também caso venha a ter.
+
+Foi um pouco complicado ajustar para ficar como eu gostaria, pois na minha forma de pensar como ideal para o meu projeto, como é apenas uma imagem (ao menos por enquanto), gostaria que cada imagem fosse guardada com um padrão de nome e dentro da pasta com edicao/id, e quando fosse deletada a imagem, a pasta tambem fosse deletada, então vamos para alguns detalhes.
+
+Criei o Service FileUploader, colocando no construtor o path padrão onde ficariam as imagens, então o construtor ficou:
+```php
+    public function __construct(string $targetDirectory, ValidatorInterface $validator)
+    {
+        $this->targetDirectory = $targetDirectory;
+        $this->validator = $validator;
+    }
+```
+Para que o targetDirectory fosse obtido "mágicamente", foi necessário colocar no 'application/config/services.yaml' o valor do target, ficando:
+```yaml
+services:
+  App\Service\FileUploader:
+    arguments:
+      $targetDirectory: '%kernel.project_dir%/public/uploads'
+```
+
+O upload recebe a imagem e parte do path onde deveria ser armazenado, para que a entidade que o usar, faça o envio do path com o id da entidade em questão, ficando:
+```php
+public function upload(UploadedFile $file, string $basePath): string
+{
+    $this->validateFile($file);
+
+    $fileName = 'img.' . $file->guessExtension();
+    $destination = $this->getTargetDirectory() . '/' . $basePath;
+
+    try {
+        $file->move($destination, $fileName);
+    } catch (FileException $e) {
+        throw new \RuntimeException('Falha ao armazenar imagem: ' . $e->getMessage());
+    }
+
+    return $basePath . $fileName;
+}
+```
+
+O validateFile desta função valida o tamanho e a extensão da imagem, da seguinte forma:
+```php
+private function validateFile(UploadedFile $file): void
+{
+    $constraints = [
+        new Assert\Image([
+            'mimeTypes' => ['image/jpeg', 'image/png', 'image/gif'],
+            'mimeTypesMessage' => 'Por favor, envie uma imagem válida (JPEG, PNG, GIF).',
+        ]),
+        new Assert\File([
+            'maxSize' => '2M',
+            'maxSizeMessage' => 'Arquivo de imagem não deve ultrapassar 2MB.',
+        ]),
+    ];
+
+    $violations = $this->validator->validate($file, $constraints);
+
+    if (count($violations) > 0) {
+        $errors = [];
+        foreach ($violations as $violation) {
+            $errors[] = $violation->getMessage();
+        }
+
+        throw new \InvalidArgumentException(implode(', ', $errors));
+    }
+}
+```
+Obs.: Para usar o Assert da imagem, foi necessário adicionar via composer, a lib `symfony/mime`.
+
+Bem, após o service, criei o `EdicaoImagemController` que utilizará o FileUploader.
+
+Ao fazer upload da imagem, ele verifica se já existe uma para a entidade informada, caso haja, ele apaga a imagem atual antes de manter a nova, em seguida atualiza a edição com o path da imagem.
+```php
+#[Route('/api/edicoes/{id}/imagem', name: 'upload_imagem', methods: ['POST'])]
+public function uploadImagem(int $id, Request $request, EntityManagerInterface $entityManager): Response
+{
+    $file = $request->files->get('imagem');
+
+    if (!$file) {
+        return $this->createErrorResponse('Não foi enviado arquivo de imagem.');
+    }
+
+    try {
+        $edicao = $entityManager->getRepository(Edicao::class)->findOneBy(['id' => $id]);
+        if (!($edicao instanceof Edicao)) {
+            return $this->createErrorResponse('Edição não encontrada.', Response::HTTP_NOT_FOUND);
+        }
+        if ($edicao->getImagem() != null && $edicao->getImagem() != "") {
+            $this->fileUploader->delete($edicao->getImagem());
+        }
+        $imagemPath = $this->fileUploader->upload($file, "img/edicao/$id/");
+        $edicao->setImagem($imagemPath);
+
+        $entityManager->flush();
+        return $this->createSuccessResponse('Imagem upload com sucesso!');
+    } catch (\Exception $e) {
+        return $this->createErrorResponse('Falha ao enviar imagem: ' . $e->getMessage());
+    }
+}
+```
+
+E já quando for deletar uma edição, eu preciso deletar também a imagem, então criei uma rota  personalizada para delete desta forma:
+```php
+#[Route('/api/edicoes/{id}/full', name: 'delete_entity', methods: ['DELETE'])]
+public function delete(int $id, EntityManagerInterface $entityManager): Response
+{
+    try {
+        $edicao = $entityManager->getRepository(Edicao::class)->findOneBy(['id' => $id]);
+        if (!($edicao instanceof Edicao)) {
+            return $this->createErrorResponse('Edição não encontrada.', Response::HTTP_NOT_FOUND);
+        }
+        if ($edicao->getImagem() != null && $edicao->getImagem() != "") {
+            $this->fileUploader->delete($edicao->getImagem());
+        }
+    } catch (\Exception $e) {
+        return $this->createErrorResponse($e->getMessage());
+    }
+
+    try {
+        $entityManager->remove($edicao);
+        $entityManager->flush();
+        return $this->createSuccessResponse('Imagem removida com sucesso!');
+    } catch (\Exception $e) {}
+    return $this->createErrorResponse('Erro ao deletar a imagem');
+}
+```
+
+❯ git status
+On branch feature/15-img-edicao
+Changes to be committed:
+(use "git restore --staged <file>..." to unstage)
+new file:   application/migrations/Version20240809224306.php
+new file:   application/src/Controller/EdicaoImagemController.php
+new file:   application/src/Service/FileUploader.php
+
+Changes not staged for commit:
+(use "git add <file>..." to update what will be committed)
+(use "git restore <file>..." to discard changes in working directory)
+modified:   application/.gitignore
+modified:   application/composer.json
+modified:   application/config/services.yaml
+modified:   application/src/Entity/Revista/Titulo/Edicao.php
+modified:   application/src/EventListener/Revista/Titulo/EdicaoListener.php
+modified:   mkdocs/docs/API/edicao.md
+
 
 _______________________________
 Em sequiga, já era possível executar o `bin/console make:validator`, ficando assim o uso:
