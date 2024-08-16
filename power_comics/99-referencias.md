@@ -9,3 +9,4 @@
 - https://www.doctrine-project.org/projects/doctrine-orm/en/current/reference/events.html#lifecycle-events
 - https://symfony.com/doc/6.4/reference/constraints/Callback.html#external-callbacks-and-closures
 - https://stackoverflow.com/questions/62726056/symfony-validation-between-2-fields
+- https://api-platform.com/docs/core/filters/

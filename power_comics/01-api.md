@@ -531,27 +531,51 @@ public function delete(int $id, EntityManagerInterface $entityManager): Response
     return $this->createErrorResponse('Erro ao deletar a imagem');
 }
 ```
+## Filtro/Pesquisa
+Obviamente alguns endpoints iremos precisar fazer pesquisas dos dados, com base em algum atributo, então, precisamos implementar [filtro e aproveitar para criar também a ordenação](https://api-platform.com/docs/core/filters/), então adicionamos ApiFilter em nosso recurso, ficando assim:
 
-❯ git status
-On branch feature/15-img-edicao
-Changes to be committed:
-(use "git restore --staged <file>..." to unstage)
-new file:   application/migrations/Version20240809224306.php
-new file:   application/src/Controller/EdicaoImagemController.php
-new file:   application/src/Service/FileUploader.php
+```php
+use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
+use ApiPlatform\Elasticsearch\Filter\OrderFilter;
+use ApiPlatform\Metadata\ApiFilter;
+use ApiPlatform\Doctrine\Orm\Filter\DateFilter;
 
-Changes not staged for commit:
-(use "git add <file>..." to update what will be committed)
-(use "git restore <file>..." to discard changes in working directory)
-modified:   application/.gitignore
-modified:   application/composer.json
-modified:   application/config/services.yaml
-modified:   application/src/Entity/Revista/Titulo/Edicao.php
-modified:   application/src/EventListener/Revista/Titulo/EdicaoListener.php
-modified:   mkdocs/docs/API/edicao.md
+#[ORM\Entity(repositoryClass: EdicaoRepository::class)]
+#[ApiResource(
+    normalizationContext: ['groups' => ['edicao:read']],
+    shortName: 'edicoe'
+)]
+#[ApiFilter(
+    SearchFilter::class,
+    properties: [
+        'numero' => 'exact',
+        'status' => 'exact',
+        'titulo' => 'exact',
+        'saga' => 'exact',
+        'subtitulo' => 'partial'
+    ]
+)]
+#[ApiFilter(DateFilter::class, properties: ['dataPublicacao'])]
+#[ApiFilter(OrderFilter::class, properties: ['numero', 'subtitulo', 'titulo', 'saga', 'dataPublicacao'], arguments: ['orderParameterName' => 'order'])]
+class Edicao
+{
+...atributos e métodos...
+}
+```
 
+Desta forma, ao adicionar o SearchFilter, suas properties definem quais são os atributos em que podemos usar para fazer a pesquisa, e no OrderFilter, seu arguments define a string que usamos para escolher o atributo de ordenação.
 
-_______________________________
-Em sequiga, já era possível executar o `bin/console make:validator`, ficando assim o uso:
-composer require symfony/validator
-bin/console make:validator
+Para ficar mais claro, vamos considerar que estamos buscando uma edição com 'subtitulo' que é 'foo bar', e ordenar pelo número, a query ficaria algo como: 
+**/api/edicoes?subtitulo=foo&order[numero]=asc**
+
+Note que temos um ApiFilter com um DateFilter, ele se refere a um campo de data (ora, ora, temos um Sherlock por aqui), que ao passar essa data, é possível pesquisar por este atributo que é o 'dataPublicacao', passando a data e se quer dados antes ou depois da data informada.
+<br/>Exemplo:
+<br/>Antes de uma data: /api/edicoes?dataPublicacao[before]=2018-05-06
+<br/>Logo antes de uma data: /api/edicoes?dataPublicacao[strictly_before]=2018-05-06
+<br/>Depois de uma data: /api/edicoes?dataPublicacao[after]=2024-01-28
+<br/>Logo depois de uma data: /api/edicoes?dataPublicacao[strictly_after]=2024-01-28
+
+## Fim
+Bem, acho que para a API, chegamos ao fim.
+
+Vamos para o [mobile? Bora!](./02-mobile.md)
