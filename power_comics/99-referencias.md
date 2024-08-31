@@ -10,3 +10,5 @@
 - https://symfony.com/doc/6.4/reference/constraints/Callback.html#external-callbacks-and-closures
 - https://stackoverflow.com/questions/62726056/symfony-validation-between-2-fields
 - https://api-platform.com/docs/core/filters/
+- https://phpspreadsheet.readthedocs.io/en/latest/
+- https://symfony.com/doc/6.4/logging.html

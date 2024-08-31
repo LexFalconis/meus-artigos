@@ -206,7 +206,7 @@ role_hierarchy:
 ```
 Neste exemplo, quase todos herdariam da ROLE_USER, e teriam suas próprias permissões também, já o ROLE_ADMIN herdaria as permissões de todos, e por isso todos estão definidos como uma coleção.
 
-## Triggers pré update e pré insert
+## Triggers pré update, pré insert e pré remove
 Algumas das entidades que podem ser persistidas neste projeto, possuem regras de (por exemplo) só poder ser alterado pelo usuário que criou o registro ou por alguém com permissão mais elevada. Para esse recurso funcionar, li um pouco sobre os [event listeners](https://symfony.com/doc/6.4/doctrine/events.html) do symfony, e venhamos e convenhamos, que coisa sensacional de se trabalhar rsrsrsrs.
 
 Para criar o listener, executei:
@@ -216,7 +216,66 @@ bin/console make:listener
 
 Com isso nomeei minha classe como 'SagaListener' (pois este é especifico para minha entidade 'Saga'), criei as funções prePersist e preUpdate, ficando da seguinte forma:
 
-![](./data/img006.png)
+```php
+final class SagaListener extends DefaultPersistEntity
+{
+    CONST CAMPOS = [
+        'nome',
+        'sinopse',
+        'inicio',
+        'fim',
+        'status'
+    ];
+
+    private $doctrine;
+
+    private $user;
+
+    public function __construct(ManagerRegistry $doctrine, Security $security)
+    {
+        parent::__construct($security, $logger);
+        $this->doctrine = $doctrine;
+        $this->user = $security->getUser();
+    }
+
+    #[AsEventListener(event: 'prePersist')]
+    public function prePersist(Saga $saga): void
+    {
+        $saga->setUsuario($this->user);
+        $this->handleEntity($saga);
+
+        $this->uniqueItem($saga);
+    }
+
+    #[AsEventListener(event: 'preUpdate')]
+    public function preUpdate(Saga $saga, PreUpdateEventArgs $eventArgs): void
+    {
+        $this->uniqueItem($saga);
+        $this->preUpdateEntity($eventArgs, self::CAMPOS);
+    }
+
+    #[AsEventListener(event: 'preRemove')]
+    public function preRemove(Saga $saga, PreRemoveEventArgs $args): void
+    {
+        $this->delete($saga, $args, $saga->getNome());
+    }
+
+    private function uniqueItem(Saga $saga)
+    {
+        $filters = [
+            'nome' => $saga->getNome(),
+            'status' => Saga::STATUS_ATIVO,
+        ];
+
+        $doctrine = $this->doctrine;
+        $duplicateItem = $doctrine->getRepository(Saga::class)->findOneBy($filters);
+
+        if ($duplicateItem instanceof Saga && $duplicateItem->getId() !== $saga->getId()) {
+            throw new SagaDuplicadaException($duplicateItem);
+        }
+    }
+}
+```
 
 **< UPDATE >**
 Posteriormente, alterei o 'application/config/services.yaml', criando um serviço onde defino, [qual evento ocorrendo em qual entidade acionará determinados métodos](https://www.doctrine-project.org/projects/doctrine-orm/en/current/reference/events.html#lifecycle-events), deixando o service assim:
@@ -226,17 +285,36 @@ services:
         tags:
             - { name: 'doctrine.orm.entity_listener', event: 'prePersist', entity: 'App\Entity\Revista\Saga'}
             - { name: 'doctrine.orm.entity_listener', event: 'preUpdate', entity: 'App\Entity\Revista\Saga'}
+            - { name: 'doctrine.orm.entity_listener', event: 'preRemove', entity: 'App\Entity\Revista\Saga'}
 ```
-### Pequeno imprevisto neste passo
-Tive certos problemas para validar os dados que eu precisava comparar, pois ao obter os dados do banco e comparar com os dados vindos da requisição, os objetos eram IDENTICOS, e isso me tomou um certo tempo para descobrir a solução, que pode ser algo bem óbvio para você que está lendo, mas talvez o cansaço de agora ser 1hs AM e eu estar trabalhando neste projeto desde 7hs AM do dia anterior, pode ter levado minhas habilidades de pensar melhor rsrsrsrs.
+### Parte do DefaultPersistEntity para exemplificar a validação
+No DefaultPersistEntity que uso para herdar métodos nos meus listeners, tenho por exemplo a lógica para impedir que um usuário com permissão mais baixa faça cadastro de uma saga e a deixe com status ativo, pois para ser exibido no sistema, um usuário com maior permissão precisa validar antes de alterar o status para ativo.
 ```php
-$doctrine = $this->doctrine;
-$oldSaga = clone $doctrine->getRepository(Saga::class)->find($saga->getId());
-$doctrine->getManager()->refresh($saga);
+class DefaultPersistEntity
+{
+    protected function preUpdateEntity(PreUpdateEventArgs $eventArgs): void
+    {
+        $user = $this->security->getUser();
 
-$this->handleEntity($saga, $oldSaga);
+        if ($user) {
+            $hasPermission = $this->hasPermission(Roles::ROLE_NAME_EDITOR);
+            $newEntity = $eventArgs->getObject();
+            if (!$hasPermission && !$newEntity->getId()) {
+                $newEntity->setStatus(0);
+            }
+
+            if (!$hasPermission && $newEntity->getStatus() !== $eventArgs->getOldValue('status')) {
+                throw new \Exception('Você não tem permissão para alterar o status. Solicite esta alteração a um usuário com permissão de EDITOR ou acima.');
+            }
+
+            if ($user->getId() !== $eventArgs->getOldValue('usuario')->getId() && !$hasPermission) {
+                throw new \Exception('Você não tem permissão para alterar estes dados.');
+            }
+        }
+    }
+}
 ```
-Aqui precisei realizar duas ações, uma que foi clonar o resultado vindo do banco e em seguida fazer um [refresh do doctrine, pois em diversas operações é utilizado cache para obter os dados](https://stackoverflow.com/questions/63073595/how-to-request-fresh-data-from-repository-and-overcome-entity-manager-persist-re).
+Com este código, toda vez que alguém tentar atualizar um registro, antes de atualizar os dados no banco o sistema irá passar por esta validação, podendo assim interromper a ação.
 
 ## Todos comandos mencionados até o momento:
 ```
@@ -349,7 +427,7 @@ class LeituraController extends AbstractController
 
 Estou usando no retorno o array `['groups' => ['leitura:read']]` pois a entidade Leitura tem referência para a entidade Usuário, e o invérso também ocorre, causando um erro de 'referência circular' no momento em que tentamos serializar a entidade.
 
-![](./data/img007.png)
+![](./data/img006.png)
 
 Criei também um serviço para centralizar a lógica e reutilizar alguns métodos na minha controller, ficando assim:
 
@@ -532,7 +610,7 @@ public function delete(int $id, EntityManagerInterface $entityManager): Response
 }
 ```
 ## Filtro/Pesquisa
-Obviamente alguns endpoints iremos precisar fazer pesquisas dos dados, com base em algum atributo, então, precisamos implementar [filtro e aproveitar para criar também a ordenação](https://api-platform.com/docs/core/filters/), então adicionamos ApiFilter em nosso recurso, ficando assim:
+Obviamente alguns endpoints, precisaremos fazer pesquisas dos dados, com base em algum atributo, então, precisamos implementar [filtro e aproveitar para criar também a ordenação](https://api-platform.com/docs/core/filters/), então adicionamos ApiFilter em nosso recurso, ficando assim:
 
 ```php
 use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
@@ -574,6 +652,176 @@ Note que temos um ApiFilter com um DateFilter, ele se refere a um campo de data 
 <br/>Logo antes de uma data: /api/edicoes?dataPublicacao[strictly_before]=2018-05-06
 <br/>Depois de uma data: /api/edicoes?dataPublicacao[after]=2024-01-28
 <br/>Logo depois de uma data: /api/edicoes?dataPublicacao[strictly_after]=2024-01-28
+
+## Controller com leitura e download de planilha
+Como eu já usava planilha para ter a ordem de leitura das HQs, e ela já passa de 200 linhas, achei uma ótima fonte de dados para alimentar o sistema, então criei a PlanilhaDadosController, que por enqaunto tem dois principais métodos, o download de uma planilha vazia para ser usada como exemplo, e o envio da planilha preenchida para alimentar o sistema com novos itens.
+
+Como irei trabalhar com uma planilha, precisei de uma lib que facilite minha vida, então optei pelo [phpspreadsheet](https://phpspreadsheet.readthedocs.io/en/latest/).
+```
+composer require phpoffice/phpspreadsheet
+```
+
+### Download
+O método para download do modelo, consiste em definir as celulas da primeira linha de cada coluna com o título esperado para cada coluna e enviar para download pela API. 
+```php
+#[Route('/api/modelo-planilhas', name: 'modelo_planilha', methods: ['GET'])]
+public function getModelo()
+{
+    $spreadsheet = new Spreadsheet();
+    $activeWorksheet = $spreadsheet->getActiveSheet();
+    $activeWorksheet
+        ->setCellValue('A1', 'Título coluna A')
+        ->setCellValue('B1', 'Título coluna B')
+        ->setCellValue('C1', 'Título coluna C');
+
+    $response = new StreamedResponse(function () use ($spreadsheet) {
+        $writer = new XlsxWriter($spreadsheet);
+        $writer->save('php://output');
+    });
+
+    $response->headers->set('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    $response->headers->set('Content-Disposition', $response->headers->makeDisposition(
+        ResponseHeaderBag::DISPOSITION_ATTACHMENT,
+        'modelo-planilha.xlsx'
+    ));
+
+    return $response;
+}
+```
+#### Alguns detalhes sobre o $response
+- new StreamedResponse(...): O StreamedResponse permite que você envie um fluxo de dados diretamente para o cliente, é útil para o download do arquivo.
+- $writer->save('php://output'): No XlsxWriter, o arquivo é salvo diretamente na saída da resposta, para que o conteúdo seja enviado diretamente ao cliente sem ser salvo no servidor.
+- $response->headers->set(...): Os cabeçalhos Content-Type e Content-Disposition são definidos para indicar ao navegador que se trata de um arquivo de planilha para download.
+### Upload da planilha
+Finalmente vamos alimentar o sistema com os dados iniciais, e ter dados reais para visualizar na API rsrsrsrs.
+
+A primeira coisa que precisei fazer, é ter certeza de que a planilha foi enviada, e em seguida, começar a ler os dados, linha a linha, e só então fazer a persistência no banco.
+
+```php
+#[Route('/api/upload-planilhas', name: 'upload_planilha', methods: ['POST'])]
+public function upload(Request $request, EntityManagerInterface $entityManager): Response
+{
+    $file = $request->files->get('planilha');
+
+    if (!$file) {
+        throw new \DomainException("Arquivo não enviado.");
+    }
+    $reader = new Xlsx();
+    $spreadsheet = $reader->load($file->getPathname());
+
+    $sheetData = $spreadsheet->getActiveSheet()->toArray();
+
+    // Processar os dados da planilha aqui
+    $posicaoTituloColunaA = $this->getPosition($sheetData['0'], 'Título coluna A');
+    $posicaoTituloColunaB = $this->getPosition($sheetData['0'], 'Título coluna B');
+    $posicaoTituloColunaC = $this->getPosition($sheetData['0'], 'Título coluna C');
+
+    $errorList = [];
+
+    $countRegistros = 0;
+
+    foreach ($sheetData as $key => $row) {
+        if ($key == 0) {
+            continue;
+        }
+        $itemTituloColunaA = $row[$posicaoTituloColunaA];
+        $itemTituloColunaB = $row[$posicaoTituloColunaB];
+        $itemTituloColunaC = $row[$posicaoTituloColunaC];
+
+        if (
+            empty($itemTituloColunaA) ||
+            empty($itemTituloColunaB) ||
+            empty($itemTituloColunaC)
+        ) {
+            continue;
+        }
+
+        ...lógica para cada coluna...
+
+        $entityItemA = new ItemA();
+        $entityItemA
+            ->setFoo($itemTituloColunaA)
+            ->setBar($itemTituloColunaB)
+            ->setFooBar($itemTituloColunaC);
+
+        try {
+            $entityManager->persist($entityItemA);
+            $entityManager->flush();
+            $countRegistros++;
+        } catch (ItemDuplicadoException $e) {
+            $errorList[] = "Item '$identificacaoItem' do '{$entityItemA->getNome()}'";
+        }
+    }
+
+    $registrosFaltantes = (count($sheetData) - 1) - $countRegistros;
+    $feedbackRegistros = "Foram registrados '$countRegistros' itens, pendente '$registrosFaltantes' itens.";
+    if (// algum registro foi feito, porém, um ou mais apresentaram conflito
+        (count($sheetData) - 1 > 0) &&
+        count($errorList) != 0
+    ) {
+        return new Response($feedbackRegistros . PHP_EOL . ' Itens já existentes no sistema: ' . implode('; ' . PHP_EOL, $errorList), Response::HTTP_CONFLICT);
+    }
+
+    if (//Todos os registros foram feitos
+        (count($sheetData) - 1 == $countRegistros) &&
+        count($sheetData) - 1 != 0
+    ) {
+        return new Response("Arquivo processado com sucesso. $feedbackRegistros", Response::HTTP_OK);
+    }
+    //Não há itens com erro de persistência e nada foi persistido
+    return new Response("Não há registros para serem importados.", Response::HTTP_OK);
+}
+```
+
+## Logs
+Um item que eu gostaria muito de trabalhar neste projeto, são os logs.
+
+Qual a causa, motivo, razão ou circunstância para isso? Saber quando algo foi alterado, o que foi alterado, ou quando algo foi deletado.
+
+Instalei então o [monolog-bundle](https://symfony.com/doc/6.4/logging.html) do symfony.
+```
+composer require symfony/monolog-bundle
+```
+Criando então automágicamente o `application/config/packages/monolog.yaml`, onde eu defini o arquivo onde meus logs serão armazenados, ficando assim:
+```yaml
+monolog:
+    handlers:
+        file_log:
+            type: stream
+            path: '%kernel.logs_dir%/nome-arquivo-log.log'
+            level: notice
+```
+Observe que no item 'level', o valor é 'notice', então qualquer log de hierarquia inferior, não será armazenado.
+
+Seguindo a ideia de reaproveitar certas coisas, criei um serviço para logs que por enquanto geram apenas logs do tipo notice em `application/src/Service/LoggerService.php`.
+
+```php
+class LoggerService
+{
+    private LoggerInterface $logger;
+
+    public function __construct(LoggerInterface $logger)
+    {
+        $this->logger = $logger;
+    }
+
+    public function notice(string $message, UserInterface $usuario, int $id = null, array $dadosExtra = [])
+    {
+        $feedback = vsprintf(
+            "%s ID: '%u' Usuário: '%s'",
+            [
+                $message,
+                $id,
+                $usuario->getUserIdentifier()
+            ]
+        );
+
+        $this->logger->notice($feedback, $dadosExtra);
+    }
+}
+```
+
+Agora tenho um serviço que posso usar inicialmente em meus listeners que cuidam do update e delete das minhas principais entidades.
 
 ## Fim
 Bem, acho que para a API, chegamos ao fim.
