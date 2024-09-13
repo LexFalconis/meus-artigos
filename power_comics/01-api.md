@@ -823,6 +823,92 @@ class LoggerService
 
 Agora tenho um serviço que posso usar inicialmente em meus listeners que cuidam do update e delete das minhas principais entidades.
 
+## Recuperação de senha
+A ideia inicial do projeto é usar o minimo de dados sensíveis possíveis, então, os usuários que optaram por informar o email, podem usufruir da função de recuperar senha, caso opte por não informar o email, infelizmente não poderá recuperar a senha caso perca.
+
+Para dar suporte a [recuperação de senha do symfony](https://symfony.com/doc/6.4/security/passwords.html#reset-password), algumas libs foram instaladas usando o composer.
+```shell
+composer require symfony/mailer
+composer require symfony/sendgrid-mailer
+composer require symfonycasts/reset-password-bundle
+```
+Em seguida adicionamos dois atributos na entidade usuário, um para armazenar o token temporário deste usuário, e outro para saber a validáde do token.
+```php
+#[ORM\Column(length: 64, nullable: true)]
+private ?string $passwordResetToken = null;
+
+#[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
+private ?\DateTimeInterface $passwordResetRequestedAt = null;
+```
+Os endpoints utilizados na API para solicitar o reset de senha, foram criados em uma controller que ficou específica para as operações relacionadas a recuperação, recebendo no construtor o EntityManagerInterface e um MailerInterface, e a solicitação ficou mais ou menos assim:
+```php
+#[Route('/api/request-password-reset', name: 'all_reset_password', methods: ['POST'])]
+public function requestPasswordReset(Request $request, UsuarioRepository $userRepository): JsonResponse
+{
+    $data = json_decode($request->getContent(), true);
+    $username = trim($data['username']);
+
+    ...validações...
+
+    $resetToken = bin2hex(random_bytes(32));
+    $user->setPasswordResetToken($resetToken);
+    $user->setPasswordResetRequestedAt(new \DateTime());
+
+    $this->entityManager->persist($user);
+    $this->entityManager->flush();
+
+    $content = $this->render('email/reset_password.html.twig', [
+        'titulo' => 'Recuperação de senha.',
+        'username' => $user->getUsername(),
+        'resetToken' => $resetToken,
+    ])->getContent();
+
+    $emailMessage = (new Email())
+        ->from($this->emailFrom)
+        ->to($user->getEmail())
+        ->subject('Recuperação de senha.')
+        ->html($content);
+
+    $this->mailer->send($emailMessage);
+
+    return new JsonResponse(
+        [
+            'message' => 'Solicitação de recuperação de senha realizada.',
+            'code' => Response::HTTP_ACCEPTED
+        ],
+        Response::HTTP_ACCEPTED
+    );
+}
+```
+Com isso o usuário terá que enviar o token e a nova senha, e se o prazo ainda estiver válido quando tentar utilizar (60 minutos), a senha será atualizada.
+
+```php
+#[Route('/api/reset-password', methods: ['POST'])]
+public function resetPassword(Request $request, UsuarioRepository $userRepository, UserPasswordHasherInterface $passwordHasher): JsonResponse
+{
+    $data = json_decode($request->getContent(), true);
+    $resetToken = trim($data['token']);
+    $newPassword = trim($data['password']);
+
+    ... validações e pesquisa de usuário ...
+
+    $hashedPassword = $passwordHasher->hashPassword($user, $newPassword);
+    $user->setPassword($hashedPassword);
+    $user->setPasswordResetToken(null);
+    $user->setPasswordResetRequestedAt(null);
+
+    $this->entityManager->persist($user);
+    $this->entityManager->flush();
+
+    return new JsonResponse(
+        [
+            'message' => 'Senha atualizada com sucesso.',
+            'code' => Response::HTTP_OK
+        ],
+        Response::HTTP_OK
+    );
+}
+```
 ## Fim
 Bem, acho que para a API, chegamos ao fim.
 

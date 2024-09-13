@@ -1,6 +1,8 @@
 # Referências
 ### Referências que me auxiliaram no desenvolvimento do sistema e consequentemente na escrita deste artigo:
 
+- https://gemini.google.com/app
+- https://chatgpt.com/
 - https://www.binaryboxtuts.com/php-tutorials/symfony-7-json-web-tokenjwt-authentication/
 - https://medium.com/@agharsaifeddine/set-up-jwt-authentication-with-symfony-using-the-lexikjwtauthenticationbundle-2df8e9170bec
 - https://symfony.com/doc/current/components/uid.html#working-with-uuids
@@ -12,3 +14,5 @@
 - https://api-platform.com/docs/core/filters/
 - https://phpspreadsheet.readthedocs.io/en/latest/
 - https://symfony.com/doc/6.4/logging.html
+- https://symfony.com/doc/6.4/security/passwords.html#reset-password
+- 
