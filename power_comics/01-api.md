@@ -6,7 +6,7 @@ Com o intuito de apenas passar por alguns passos importantes e que podem ajudar 
 Outro ponto que é bom deixar claro, é que algumas coisas que foram desenvolvidas/configuradas no inicio, podem e provavelmente serão alteradas com o decorrer do desenvolvimento, e por este motivo, mais a frente pode-se encontrar correções ou complementos de algo que já havia sido feito/mencionado, então (quando eu lembrar de fazer) colocarei a identificação **< UPDATE >** no titulo ou parte do texto (qqc, faz um find aí...).
 
 ## Ambiente
-Antes de mais nada, famos instalar o 'básico':
+Antes de mais nada, vamos instalar o 'básico':
 1. Instalação do Symfony
 ```
 composer create-project symfony/skeleton:"6.4.*" my_project_directory
