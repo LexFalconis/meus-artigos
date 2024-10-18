@@ -119,3 +119,288 @@ flutter {
     source = "../.."
 }
 ```
+
+## Dependências iniciais
+
+Uma coisa que eu já vim decidido é que `não quero usar o getx neste projeto`, e os motivos principais são:
+1. É o único gerenciador de estado que posso dizer realmente que usei e me sinto na necessidade de usar outros.
+2. Este incrível package está a mais de 1 ano sem novas publicações no [pub.dev](https://pub.dev/packages/get)
+
+Então, o que tenho de alternativas?
+
+Bom, tenho o [mobx](https://pub.dev/packages/mobx) que me parece simples e funcional, mas que também está alguns meses (6 p ser mais exato) sem atualização, então vou evitar.
+
+Temos o [bloc](https://pub.dev/packages/flutter_bloc), mas confesso que ele me pareceu em alguns pontos parecido com o getx em seu uso, e minha idéia no momento é estudar algo TALVEZ um pouco mais diferente para sair da zona de conforto.
+
+Queria ver o [provider](https://pub.dev/packages/provider) já tem um tempinho, mas sei que ele está sendo substituido pelo [riverpod](https://pub.dev/packages/riverpod), que é sua "nova versão", mas com tantas alterações que a equipe por trás dele acho mais interessante criar um novo package para substituir o anterior, sem a preocupação dos usuários de ter uma quebra extremamente grande de compatibilidade ao mudar sua major.
+
+Então é isso, vou de riverpod.
+
+Com esta definição feita, vamos adicionar ele no nosso pubspec.yaml, adicionei a então o `flutter_riverpod: ^2.5.3`.
+
+Outro ponto, que não necessáriamente precisava ser feito agora, é inserir o package que cuidará das requisições HTTP, para este requisito, o [dio](https://pub.dev/packages/dio) foi o escolhido pelo seu poder e simplicidade no uso.
+
+## Path das imagens
+
+Para utilizar imagens na aplicação, vamos centralizar o local onde elas ficam, para facilitar a gestão desses arquivos, então foi necessário inserir também no pubspec, o path das imagens ficando assim:
+
+```yaml
+  assets:
+    - assets/images/
+```
+
+## Tela de carregamento e o main.dart iniciais
+
+Como o Flutter precisa estar totalmente carregado para que possamos definir a orientação do app (que funcionará apenas na vertical), usaremos o 'WidgetsFlutterBinding.ensureInitialized()' para garantir que isso ocorra.
+
+O próximo passo será exatamente definir a orientação usando o 'SystemChrome.setPreferredOrientations', e por fim, vamos iniciar o aplicativo, mas encapsulando-o dentro do ProviderScope, que irá gerar um escopo global para nossa gestão de dependências.
+
+Como ficou nosso main:
+
+```dart
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+  ]).then((_) {
+    runApp(
+      const ProviderScope(
+        child: MyApp(),
+      ),
+    );
+  });
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Power Comics',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        useMaterial3: true,
+      ),
+      initialRoute: PagesRoutes.splashScreen,
+      onGenerateRoute: AppRouter.onGenerateRoute,
+      home: const SplashScreen(),
+      debugShowCheckedModeBanner: false,
+    );
+  }
+}
+```
+
+O MyApp foi criado como um StatelessWidget, pois ao menos por enquanto, não haverá mudanças dinâmicas dentro deste widget. Ele retorna o MaterialApp, onde defini que a rota inicial do aplicativo é a SplashScreen, e o onGenerateRoute define a função personalizada para geração de rotas.
+
+Criei o AppRouter para ser o responsável pelas nossas rotas, e é onde está a lógica do onGenerateRoute.
+
+```dart
+class AppRouter {
+  static Route<dynamic> onGenerateRoute(RouteSettings settings) {
+    switch (settings.name) {
+      case PagesRoutes.splashScreen:
+        return MaterialPageRoute(builder: (_) => const SplashScreen());
+      case PagesRoutes.home:
+        return MaterialPageRoute(builder: (_) => const MyHomePage());
+      default:
+        return MaterialPageRoute(
+          builder: (_) => Scaffold(
+            body: Center(
+              child: Text('No route defined for ${settings.name}'),
+            ),
+          ),
+        );
+    }
+  }
+}
+
+abstract class PagesRoutes {
+  static const String root = '/';
+  static const String splashScreen = '/splash-screen';
+  static const String home = '/home';
+}
+```
+
+Já a tela de carregamento, possui em seu initstate, a funcionalidade de redirecionamento de tela após um segundo e mail, enquanto isso, ela exibe uma imagem e o texto de carregamento.
+
+```dart
+class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> {
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(milliseconds: 1500), () {
+      Navigator.of(context).pushReplacementNamed(PagesRoutes.home);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color.fromRGBO(76, 76, 76, 1),
+      child: Container(
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              PathImages.splashscreen,
+              fit: BoxFit.cover,
+            ),
+            const SizedBox(
+              height: 10,
+            ),
+            const Text(
+              'Carregando...',
+              style: TextStyle(color: Colors.white, fontSize: 25,),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+```
+
+## Criação do menu
+
+Para facilitar a vida, é bom ter um menu com as opções que o usuário possui, sendo apresentado de forma padrão em todas as telas, certo? 
+Então suas páginas precisam retornar um Scaffold com um menu no atributo drawer. 
+O menu não é tão complicado de ser criada uma view.dart com um StatefulWidget, onde seu retorno é o widget PopScope.
+
+O [PopScope](https://api.flutter.dev/flutter/widgets/PopScope-class.html) permitirá gerênciar os gestos de navegação, ocultando o menu ao clicar fora dele ou pressionando o botão voltar do celular.
+
+Bem, então em seu child vamos inserir um Drawer com um ListView, para ficar com uma aparência legal de menu, e também uma imagem/logo antes das opções do menu, deixando sua versão simplificada mais ou menos assim:
+
+```dart
+class MenuView extends StatefulWidget {
+  const MenuView({super.key});
+
+  @override
+  State<MenuView> createState() => _MenuViewState();
+}
+
+class _MenuViewState extends State<MenuView> {
+  PackageInfo _packageInfo = PackageInfo(
+    appName: '',
+    packageName: '',
+    version: '',
+    buildNumber: '',
+    buildSignature: '',
+    installerStore: '',
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _initPackageInfo();
+  }
+
+  Future<void> _initPackageInfo() async {
+    final info = await PackageInfo.fromPlatform();
+    setState(() {
+      _packageInfo = info;
+    });
+  }
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, Object? result) async {
+        if (didPop) {
+          return;
+        }
+        Navigator.pop(context);
+      },
+      child: Drawer(
+        backgroundColor: CustomColors.customDarkGreyColor,
+        child: Column(
+          children: [
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  ///////////////////////////////////////
+                  // Topo do menu. Logo
+                  ///////////////////////////////////////
+                  Column(
+                    children: [
+                      const SizedBox(
+                        height: 15,
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Image.asset(
+                          PathImages.logo,
+                          height: 150,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const Divider(),
+
+                  ///////////////////////////////////////
+                  // Inicio das opções do menu
+                  ///////////////////////////////////////
+
+                  // Botão Inicio/home
+                  ListTile(
+                      minTileHeight: 20,
+                      leading: Image.asset(
+                        imagePath,
+                        height: 40,
+                      ),
+                      title: Text(
+                        texto,
+                        style: CustomTextStyle.bodyStyle(color: cor),
+                      ),
+                      subtitle: Text(
+                        descricao,
+                        style: CustomTextStyle.secondaryTextStyle(color: cor),
+                      ),
+                      onTap: () {
+                        // if (authController.currentPage == PagesRoutes.homeRoute) {
+                        //   Navigator.pop(context);
+                        //   return;
+                        // }
+                
+                        // Get.offAllNamed(PagesRoutes.homeRoute);
+                      },
+                    );
+                ],
+              ),
+            ),
+
+            // VERSÃO DO APP
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 18.0),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, size: 20),
+                  Text(' v${_packageInfo.version}+${_packageInfo.buildNumber}'),
+                ],
+              ),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+Você deve ter notado o uso do [PackageInfo](https://pub.dev/packages/package_info_plus), bom, este package irá permitir 
+que acrescentemos no menu, a versão atual do app, com base no 'version' do nosso pubspec. 
+
+Ah, um detalhe que é importante mencionar, caso adicione este package em seu projeto, não se assuste se ao adicionar a 
+tela que usa ele quebrar rsrsrsrs, não adianta fazer hot reload ou restart do app, será necessário para a execução e rebuildar ele para funcionar.
