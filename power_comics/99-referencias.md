@@ -21,6 +21,8 @@
 - https://phpspreadsheet.readthedocs.io/en/latest/
 - https://symfony.com/doc/6.4/logging.html
 - https://symfony.com/doc/6.4/security/passwords.html#reset-password
+- https://dev.to/jszutkowski/securing-api-with-jwt-in-symfony-36dk
+- https://packagist.org/packages/gesdinet/jwt-refresh-token-bundle
 
 #### Mobile
 - https://docs.flutter.dev/reference/flutter-cli

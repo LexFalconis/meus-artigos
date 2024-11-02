@@ -16,7 +16,7 @@ composer create-project symfony/skeleton:"6.4.*" my_project_directory
 composer require api
 ```
 
-## Autênticação JWT
+## Autênticação JWT<a id="jwt"></a>
 Tá aí uma coisa um pouco mais "complicada" e que levou mais tempo do que eu esperava para realizar todos os passos. Então vamos a eles:
 1. Para autênticar, é necessário alguma forma de validar usuário e senha, então usaremos o armazenamento do usuário através do banco de dados, então para usar o 'make' do symfony, vamos instalar o seu bundle.
 ```
@@ -909,6 +909,95 @@ public function resetPassword(Request $request, UsuarioRepository $userRepositor
     );
 }
 ```
+
+## Refresh do token
+Após "concluir" a API, tentei iniciar o aplicativo que iria consumir este sistema, mas enquanto trabalhava na funcionalidade de login, 
+me dei conta que a cada uma hora eu precisaria refazer o login, e isso me fez pensar em guardar o login e senha digitado 
+no armazenamento local.
+
+Você deve estar pensando "ele vai guardar a senha no local storage mesmo? não tem uma solução melhor?", e foi exatamente 
+isso que pensei também, então fui pesquisar sobre atualização dos tokens JWT, e acabei me deparando com um [artigo que fala 
+sobre o JWTRefreshTokenBundle](https://dev.to/jszutkowski/securing-api-with-jwt-in-symfony-36dk), e vou usar ele como 
+referência para criar esta funcionalidade.
+
+Para trabalhar com esses tokens, foi necessário a adição de uma lib para facilitar a vida. 
+
+```
+composer require gesdinet/jwt-refresh-token-bundle
+```
+
+Com certo receio de usar uma lib que pode ser abandonada pelo criador, fui ver no [packagist como está o projeto](https://packagist.org/packages/gesdinet/jwt-refresh-token-bundle), suas últimas 
+atualização e etc, vi que a última atualização dele enquanto escrevo este texto, é de cerca de 8 meses atrás, talvez fosse algo preocupante, 
+porém vi que tem pouco mais de 1 milhões de downloads, e não me pareceu ser algo que será abandonado em curto prazo.
+
+Criei a entidade RefreshToken conforme o exemplo do artigo, e ela é bem simples, mais simples do que esperava, ficando assim:
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Entity;
+
+use Doctrine\ORM\Mapping\Entity;
+use Doctrine\ORM\Mapping\Table;
+use Gesdinet\JWTRefreshTokenBundle\Entity\RefreshToken as BaseRefreshToken;
+
+#[Entity]
+#[Table(name: "refresh_tokens")]
+class RefreshToken extends BaseRefreshToken
+{
+}
+```
+
+Uma curiosidade desta entidade, é que a primeira coisa que ela faz é inserir o código `declare(strict_types=1)`, e isso 
+é adicionado para ativar o modo strict para os tipos de dados, que garante que os valores passados para os métodos serão 
+exatamente do tipo esperado.
+
+Como sempre que é adicionada outra entidade que será persistida no banco, precisamos atualizar o baco, então executamos os comandos:
+```
+bin/console doctrine:migrations:diff
+bin/console doctrine:migrations:migrate
+```
+
+Próximo passo é configurar o package que fica em `application/config/packages/gesdinet_jwt_refresh_token.yaml`, deixando assim:
+
+```yaml
+gesdinet_jwt_refresh_token:
+    ttl: 2592000
+    firewall: main
+    token_parameter_name: refresh_token
+    single_use: true
+    refresh_token_class: App\Entity\RefreshToken
+```
+Onde:
+- ttl: Se refere ao tempo de validade do refresh_token, que no caso ficou para 30 dias (o valor atribuido é em segundos)
+- firewall: É o firewall que está configurado no security.yaml para o refresh token atuar.
+- token_parameter_name: Aqui colocamos o nome do atributo que deverá ser enviado para renovação do token.
+- single_use: O seu refresh token poderá ser usado mais de uma vez durante o tempo de validade? Então deixe como false, caso contrário, 
+ao ser utilizado voce receberá um novo token e o que foi utilizado será inválidado.
+- refresh_token_class: É o namespace da entidade que armazenará os tokens.
+
+A configuração do security.yaml se torna necessária, adicionando no firewall o path para o refresh token, atualizando o que dissemos no [Autênticação JWT](#jwt), desta forma:
+
+```yaml
+api_login:
+  pattern: ^/api/login
+  stateless: true
+  json_login:
+    check_path: /api/login_check
+    success_handler: lexik_jwt_authentication.handler.authentication_success
+    failure_handler: lexik_jwt_authentication.handler.authentication_failure
+main:
+  pattern: ^/api
+  stateless: true
+  jwt: ~
+  refresh_jwt:
+    check_path: /api/token/refresh
+  entry_point: jwt
+```
+
+Agora ao fazer login na rota `/api/login_check`, receberemos os valores "token" e o "refresh_token" que poderá ser utilizado para atualizar o token do usuário logado.
+
 ## Fim
 Bem, acho que para a API, chegamos ao fim.
 

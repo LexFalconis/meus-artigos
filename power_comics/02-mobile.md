@@ -403,4 +403,12 @@ Você deve ter notado o uso do [PackageInfo](https://pub.dev/packages/package_in
 que acrescentemos no menu, a versão atual do app, com base no 'version' do nosso pubspec. 
 
 Ah, um detalhe que é importante mencionar, caso adicione este package em seu projeto, não se assuste se ao adicionar a 
-tela que usa ele quebrar rsrsrsrs, não adianta fazer hot reload ou restart do app, será necessário para a execução e rebuildar ele para funcionar.
+tela que usa ele quebrar rsrsrsrs, não adianta fazer hot reload ou restart do app, será necessário parar a execução e buildar novamente a aplicação.
+
+
+- Criado menu
+- Criado form com autenticação
+- Adicionei (json_annotation, json_serializable), freezed, freezed_annotation e build_runner
+- usei o json_serializable e json_annotation no model para a serialização e depois o build para gerar o arquivo 'part' 
+- executei `dart run build_runner build`
+- criado o AuthResult e usado nele o freezed e o freezed_annotation
