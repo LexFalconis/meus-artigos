@@ -163,13 +163,12 @@ void main() {
   
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
-  ]).then((_) {
-    runApp(
-      const ProviderScope(
-        child: MyApp(),
-      ),
-    );
-  });
+  ]);
+  runApp(
+    const ProviderScope(
+      child: MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -180,19 +179,18 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Power Comics',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.white),
         useMaterial3: true,
       ),
-      initialRoute: PagesRoutes.splashScreen,
       onGenerateRoute: AppRouter.onGenerateRoute,
-      home: const SplashScreen(),
       debugShowCheckedModeBanner: false,
     );
   }
 }
 ```
 
-O MyApp foi criado como um StatelessWidget, pois ao menos por enquanto, não haverá mudanças dinâmicas dentro deste widget. Ele retorna o MaterialApp, onde defini que a rota inicial do aplicativo é a SplashScreen, e o onGenerateRoute define a função personalizada para geração de rotas.
+O MyApp foi criado como um StatelessWidget, pois ao menos por enquanto, não haverá mudanças dinâmicas dentro deste widget. 
+Ele retorna o MaterialApp, o onGenerateRoute define a função personalizada para geração de rotas.
 
 Criei o AppRouter para ser o responsável pelas nossas rotas, e é onde está a lógica do onGenerateRoute.
 
@@ -217,13 +215,12 @@ class AppRouter {
 }
 
 abstract class PagesRoutes {
-  static const String root = '/';
-  static const String splashScreen = '/splash-screen';
+  static const String splashScreen = '/';
   static const String home = '/home';
 }
 ```
 
-Já a tela de carregamento, possui em seu initstate, a funcionalidade de redirecionamento de tela após um segundo e mail, enquanto isso, ela exibe uma imagem e o texto de carregamento.
+Já a tela de carregamento, possui em seu initstate, a funcionalidade de redirecionamento de tela após um segundo e meio, enquanto isso, ela exibe uma imagem e o texto de carregamento.
 
 ```dart
 class SplashScreen extends StatefulWidget {
@@ -238,7 +235,9 @@ class _SplashScreenState extends State<SplashScreen> {
   void initState() {
     super.initState();
     Future.delayed(const Duration(milliseconds: 1500), () {
-      Navigator.of(context).pushReplacementNamed(PagesRoutes.home);
+      if (mounted) {
+        Navigator.of(context).restorablePushNamedAndRemoveUntil(PagesRoutes.home, (route) => false);
+      }
     });
   }
 
@@ -258,9 +257,13 @@ class _SplashScreenState extends State<SplashScreen> {
             const SizedBox(
               height: 10,
             ),
+            const CircularProgressIndicator(),
             const Text(
               'Carregando...',
-              style: TextStyle(color: Colors.white, fontSize: 25,),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 25,
+              ),
             ),
           ],
         ),
@@ -268,7 +271,6 @@ class _SplashScreenState extends State<SplashScreen> {
     );
   }
 }
-
 ```
 
 ## Criação do menu
@@ -406,9 +408,20 @@ Ah, um detalhe que é importante mencionar, caso adicione este package em seu pr
 tela que usa ele quebrar rsrsrsrs, não adianta fazer hot reload ou restart do app, será necessário parar a execução e buildar novamente a aplicação.
 
 
-- Criado menu
+## Formulário de login
+Para controlar o acesso aos dados, mais precisamente a algumas poucas funcionalidades, criei a página de login para autênticação do usuário.
+
+Separei o arquivo em dois, apenas para uma melhor organização do código. Primeiro tenho o login_view.dart, e dentro dele 
+é usado a classe que vem do arquivo form_login_widget.dart. O arquivo "principal" possui um scafold com nosso menu, 
+uma imagem/logo, e por fim uma chamada para nossa classe do formulário, que esta ficou responsável por apresentar o formulário 
+e validar os dados para enviar a requisição para uma controller, que seguirá os passos até o envio da requisição para a API.
+
+
+
+
 - Criado form com autenticação
 - Adicionei (json_annotation, json_serializable), freezed, freezed_annotation e build_runner
 - usei o json_serializable e json_annotation no model para a serialização e depois o build para gerar o arquivo 'part' 
 - executei `dart run build_runner build`
 - criado o AuthResult e usado nele o freezed e o freezed_annotation
+- adicionei o `jwt_decoder`

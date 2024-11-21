@@ -24,11 +24,11 @@ composer require symfony/maker-bundle --dev
 ```
 2. Agora vamos usar o make para criar o usuário, definindo qual atributo será usado como unico, como email ou nome de usuário.
 
-![](./data/img001.png)
+![](./data/api/img001.png)
 
 3. Vamos então criar a tabela no banco de dados, usando a criação do migration e executando-a em seguida.
 
-![](./data/img002.png)
+![](./data/api/img002.png)
 
 4. Hora de instalar o pacote responsável pelo uso do JWT
 ```
@@ -126,15 +126,15 @@ Obs.: Usamos o 'UserPasswordHasherInterface' para fazer o encoding da senha envi
 
 - Cadastro de um usuário:
 
-![](./data/img003.png)
+![](./data/api/img003.png)
 
 - Obtendo token do usuário cadastrado:
 
-![](./data/img004.png)
+![](./data/api/img004.png)
 
 - Obtendo dados utilizando token na requisição:
 
-![](./data/img005.png)
+![](./data/api/img005.png)
 
 ## Todos comandos mencionados até o momento:
 ```
@@ -427,7 +427,7 @@ class LeituraController extends AbstractController
 
 Estou usando no retorno o array `['groups' => ['leitura:read']]` pois a entidade Leitura tem referência para a entidade Usuário, e o invérso também ocorre, causando um erro de 'referência circular' no momento em que tentamos serializar a entidade.
 
-![](./data/img006.png)
+![](./data/api/img006.png)
 
 Criei também um serviço para centralizar a lógica e reutilizar alguns métodos na minha controller, ficando assim:
 
