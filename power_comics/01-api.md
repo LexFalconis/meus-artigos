@@ -614,14 +614,20 @@ Obviamente alguns endpoints, precisaremos fazer pesquisas dos dados, com base em
 
 ```php
 use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
-use ApiPlatform\Elasticsearch\Filter\OrderFilter;
 use ApiPlatform\Metadata\ApiFilter;
 use ApiPlatform\Doctrine\Orm\Filter\DateFilter;
+use ApiPlatform\Metadata\GetCollection;
 
 #[ORM\Entity(repositoryClass: EdicaoRepository::class)]
 #[ApiResource(
-    normalizationContext: ['groups' => ['edicao:read']],
-    shortName: 'edicoe'
+    shortName: 'edicoe',
+    operations: [
+        new GetCollection(
+            order: ['numero', 'subtitulo', 'titulo', 'saga', 'dataPublicacao'],
+            filters: ['order.filter']
+        )
+    ],
+    normalizationContext: ['groups' => ['edicao:read']]
 )]
 #[ApiFilter(
     SearchFilter::class,
@@ -634,14 +640,23 @@ use ApiPlatform\Doctrine\Orm\Filter\DateFilter;
     ]
 )]
 #[ApiFilter(DateFilter::class, properties: ['dataPublicacao'])]
-#[ApiFilter(OrderFilter::class, properties: ['numero', 'subtitulo', 'titulo', 'saga', 'dataPublicacao'], arguments: ['orderParameterName' => 'order'])]
 class Edicao
 {
 ...atributos e métodos...
 }
 ```
 
-Desta forma, ao adicionar o SearchFilter, suas properties definem quais são os atributos em que podemos usar para fazer a pesquisa, e no OrderFilter, seu arguments define a string que usamos para escolher o atributo de ordenação.
+Desta forma, ao adicionar o SearchFilter, suas properties definem quais são os atributos em que podemos usar para fazer a pesquisa.
+No ApiResource no operations estamos definindo os atributos que podem ser usador para ordenação, porém, para garantir o
+funcionamento da ordenação, altere o services.yaml adicionando o order.filter
+```yaml
+services:
+    order.filter:
+        parent: 'api_platform.doctrine.orm.order_filter'
+        tags: [ 'api_platform.filter' ]
+        autowire: false
+        autoconfigure: false
+```
 
 Para ficar mais claro, vamos considerar que estamos buscando uma edição com 'subtitulo' que é 'foo bar', e ordenar pelo número, a query ficaria algo como: 
 **/api/edicoes?subtitulo=foo&order[numero]=asc**
@@ -997,6 +1012,42 @@ main:
 ```
 
 Agora ao fazer login na rota `/api/login_check`, receberemos os valores "token" e o "refresh_token" que poderá ser utilizado para atualizar o token do usuário logado.
+
+## Permissões nas requisições < UPDATE >
+Em certo momento, precisei alterar minhas classes para adicionar no ApiResource, a opção de ordenação dos dados, foi bem 
+interessante, porem, quando fiz a alteração, adicionei o operations com um GetCollection, isso fez com que as outras 
+operações por não estarem ali declaradas, fossem consideradas como métodos não habilitados para o endpoint (pense numa frustração) 
+foi então que decidi trazer para as próprias entidades as roles que estavam no access_control do security.yaml, ficando 
+então mais ou menos assim as minhas entidades:
+```php
+#[ApiResource(
+    operations: [
+        new GetCollection(
+            order: ['id', 'nome'],
+            security: null,
+            filters: ['order.filter']
+        ),
+        new Get(
+            security: null
+        ),
+        new Post(
+            security: "is_granted('ROLE_CONTRIBUTOR')"
+        ),
+        new Put(
+            security: "is_granted('ROLE_CONTRIBUTOR')"
+        ),
+        new Delete(
+            security: "is_granted('ROLE_CONTRIBUTOR')"
+        )
+    ]
+)]
+class NomeDaEntidade
+{ ... }
+```
+Note que precisei declarar todos os métodos que aceito (Get, Post, Put e Delete), adicionando para cada um seu nível de 
+permissão, porém os do Get estão como 'security null', pois como já mencionado em algum momento mais acima, boa parte das 
+minhas rotas GET não precisam de autênticação.
+
 
 ## Fim
 Bem, acho que para a API, chegamos ao fim.
