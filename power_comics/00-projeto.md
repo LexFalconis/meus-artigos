@@ -18,3 +18,8 @@ E foi assim que, fazendo papel do Alpha, recrutei um grupo de jovens que, na ver
 ## Projetos
 - [Power Comics API](./01-api.md)
 - [Power Comics Mobile](./02-mobile.md)
+- [Registro de dominio](./03-dominio.md)
+- [Hospedagem da API](./04-hospedagem.md)
+- [Conta Google Developer](./05-conta-google-developer.md)
+- [Publicação na loja do google](./06-publicacao-loja-google.md)
+- [Links de referências](./99-referencias.md)

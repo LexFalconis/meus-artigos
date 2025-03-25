@@ -1,4 +1,4 @@
-# Google Developer 
+# Conta Google Developer 
 
 ## O que abordaremos?
 Processo de criação de uma conta no [Google Play Console](https://play.google.com/console/u/0/signup) para pessoa física.
@@ -7,7 +7,7 @@ Estando logado com uma conta google e acessando a página do [Google Play Consol
 
 ![img 001](data/google-developer/001.png)
 
-Será apresentada uma tela com instruções/orientações e o valor necessário apra criação da conta, que no momento, sao de $ 25,00 ([25 dólares](https://wise.com/br/currency-converter/usd-to-brl-rate?amount=25)).
+Será apresentada uma tela com instruções/orientações e o valor necessário para criação da conta, que no momento, são de $ 25,00 ([25 dólares](https://wise.com/br/currency-converter/usd-to-brl-rate?amount=25)).
 
 ![img 002](data/google-developer/002.png)
 
@@ -51,4 +51,6 @@ E FINALMENTE, depois de tantos passos, a conta foi criada. Ufa...
 
 ![img 014](data/google-developer/014.png)
 
+O e-mail de confirmação chegou no dia seguinte (registro feito no domingo e confirmação recebida na segunda).
 
+![015.png](data/google-developer/015.png)

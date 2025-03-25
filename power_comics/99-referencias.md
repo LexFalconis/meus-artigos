@@ -30,4 +30,17 @@
 - https://docs.flutter.dev/data-and-backend/networking
 - https://www.youtube.com/watch?v=EGTKnkjIFp4
 - https://developer.android.com/tools/releases/platforms
-- 
+
+#### Registro e hospedagem
+- https://registro.br/
+- https://www.hostgator.com.br/hospedagem-de-sites
+- https://registro.br/painel/dominios/
+- https://theandystratton.com/2012/ssh-returns-too-many-authentication-failures-error-hostgator
+- https://pt.stackoverflow.com/questions/506825/publica%C3%A7%C3%A3o-de-aplica%C3%A7%C3%A3o-symfony-produ%C3%A7%C3%A3o
+
+#### Conta google e publicação do app
+- https://payments.google.com/gp/w/u/0/home/settings
+- https://icon.kitchen/
+- https://docs.flutter.dev/deployment/android#signing-the-app
+- https://developer.android.com/studio/publish/app-signing?hl=pt-br#generate-key
+- https://play.google.com/console/u/0/signup

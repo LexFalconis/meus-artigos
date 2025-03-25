@@ -9,7 +9,7 @@ Sei que pode ser uma etapa inutil de ser documentada para algumas pessoas, poré
 Existem inumeros sites que você pode optar por registrar um dominio, porém, para um site que finalize dom .com.br, do meu 
 ponto de vista, o [registro.br](https://registro.br/) permanece sendo a melhor opção, pois são os responsáveis por gerenciar os registros de domínios terminados com **.br**.
 
-Os valores do registro neste site no momento em que escrevo, são de R$ 40,00 por 1 ano podendo registrar por até 10 anos pagando R$ 364,00 (R$ 36,40 por ano).
+Os valores do registro neste site no momento em que escrevo, são de R\$ 40,00 por 1 ano podendo registrar por até 10 anos pagando R\$ 364,00 (R\$ 36,40 por ano).
 
 ## Pesquisa e registro
 Ao acessar o site, você já encontra a ferramenta de pesquisa de domínio (ao menos atualmente), então veja se o endereço 
